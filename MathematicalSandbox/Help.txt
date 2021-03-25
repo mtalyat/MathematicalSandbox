@@ -1,0 +1,34 @@
+﻿
+
+		Types
+
+There are several supported data types in Mathematical Sandbox. They include: boolean, integer, double, double[], string and expression. Variables can hold any type of data.
+
+ - boolean (bool)
+A data type that represents True or False. When used as a number, it will be converted to 1 for True, or 0 for False.
+
+ - integer (int32)
+A data type that represents a whole number.
+Examples: 5, 245, -63
+
+ - double (double)
+A data type that represents a number.
+Examples: 1, -3.67, 3.14159
+
+ - double[] (double[])
+A data type that represents an array of numbers.
+Examples: [2.0, 5.22, 53.6], [1, 3, 5]
+
+ - string (string)
+A data type that represents a string literal.
+Examples: "name", "x", "string literal"
+
+ - expression (SymbolicExpression)
+A data type that represents an expression (mathematical function).
+Examples: {2 * x ^ 2}, {1 / 2 * pi * r ^ 2}, {(x ^ 2 + y ^ 2) ^ (1.0 / 2) }
+
+		Variables
+
+Declare/set variables by doing doing the following syntax:
+
+variableName = object
