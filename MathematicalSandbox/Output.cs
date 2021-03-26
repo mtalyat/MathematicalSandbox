@@ -24,7 +24,7 @@ namespace MathematicalSandbox
 
         public static void PrintError(string message)
         {
-            Console.WriteLine($"[{message}]");
+            Console.WriteLine($"[ERROR: {message}]");
         }
 
         public static void PrintLine()
@@ -208,13 +208,13 @@ namespace MathematicalSandbox
         public static void Display(object o)
         {
             //check if it is an array, those are handled differently
-            if (o.GetType().IsArray)
+            Type t = o.GetType();
+            if (t.IsArray)
             {
-                Console.Write(OUT_CHAR);
-                PrintArray((double[])o);
+                Console.WriteLine(string.Format("{0}{1}{2}", OUT_CHAR, ArrayToString((double[])o), SaveData.Instance.DebugMode ? string.Format("({0})", t.Name.ToLower()) : ""));
             } else
             {
-                Console.WriteLine(OUT_CHAR + o.ToString());
+                Console.WriteLine(string.Format("{0}{1}{2}", OUT_CHAR, o, SaveData.Instance.DebugMode ? string.Format("({0})", t.Name.ToLower()) : ""));
             }
         }
 

@@ -15,44 +15,32 @@ namespace MathematicalSandbox
         private const ConsoleColor DEFAULT_BG = ConsoleColor.Black;
         private const ConsoleColor DEFAULT_FG = ConsoleColor.White;
 
-        private Dictionary<string, object> variables;
-        public Dictionary<string, object> Variables
-        {
-            get => variables;
-            set => variables = value;
-        }
+        public Dictionary<string, object> Variables { get; set; }
 
-        private ConsoleColor backgroundColor = DEFAULT_BG;
-        public ConsoleColor BackColor
-        {
-            get => backgroundColor;
-            set => backgroundColor = value;
-        }
+        public ConsoleColor BackColor { get; set; } = DEFAULT_BG;
 
-        private ConsoleColor foregroundColor = DEFAULT_FG;
-        public ConsoleColor ForeColor
-        {
-            get => foregroundColor;
-            set => foregroundColor = value;
-        }
+        public ConsoleColor ForeColor { get; set; } = DEFAULT_FG;
+
+        public bool DebugMode = false;
 
         public SaveData()
         {
             Instance = this;
 
-            if (variables == null) variables = new Dictionary<string, object>();
+            if (Variables == null) Variables = new Dictionary<string, object>();
         }
 
         public void ResetSettings()
         {
-            backgroundColor = DEFAULT_BG;
-            foregroundColor = DEFAULT_FG;
+            ForeColor = DEFAULT_FG;
+            BackColor = DEFAULT_BG;
+            DebugMode = false;
         }
 
         public void Update()
         {
-            Console.ForegroundColor = foregroundColor;
-            Console.BackgroundColor = backgroundColor;
+            Console.ForegroundColor = ForeColor;
+            Console.BackgroundColor = BackColor;
         }
 
         public void Save()

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Text;
@@ -65,6 +66,21 @@ namespace MathematicalSandbox
         }
 
         [Hidden]
+        public static object GetConstant(string name)
+        {
+            //check the constants
+            FieldInfo fi = fields.First((v) =>
+            {
+                return v.Name == name;
+            });
+
+            if (fi != null) return fi;
+
+            //found nothing, return default
+            return 0.0;
+        }
+
+        [Hidden]
         public static MethodInfo GetFunction(string name)
         {
             foreach (MethodInfo mi in methods)
@@ -75,6 +91,7 @@ namespace MathematicalSandbox
             return null;
         }
 
+        [Hidden]
         public static MethodInfo GetFunctionFromFullName(string fullName)
         {
             foreach(MethodInfo mi in methods)
@@ -128,194 +145,38 @@ namespace MathematicalSandbox
             return methodString.Substring(start, end - start);
         }
 
+        [Hidden]
+        public static string[] ReplaceConstants(string[] input)
+        {
+            string[] output = new string[input.Length];
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                String s = input[i];
+
+                bool found = false;
+                foreach(FieldInfo fi in fields)
+                {
+                    if(fi.Name.CompareTo(s) == 0)
+                    {
+                        output[i] = fi.GetRawConstantValue().ToString();
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    output[i] = s;
+            }
+
+            return output;
+        }
+
         #endregion
 
         #region Parsing
 
-        private static int FindNextClosing(string str, int startIndex, char opening, char closing)
-        {
-            int depth = 0;
 
-            for (int i = startIndex; i < str.Length; i++)
-            {
-                char c = str[i];
-
-                if (c == opening)
-                {
-                    depth++;
-                } else if (c == closing)
-                {
-                    //ignore if inside of another set of brackets
-                    if (depth > 0)
-                    {
-                        depth--;
-                    } else
-                    {
-                        return i;
-                    }
-                }
-            }
-
-            //not found
-            return -1;
-        }
-
-        [Hidden]
-        public static string ReplaceFunctions(string input)
-        {
-            foreach (MethodInfo mi in methods)
-            {
-                string funcName = mi.Name;
-
-                int funcIndex = input.IndexOf(funcName);
-
-                //replace every occurance of this function
-                while (funcIndex >= 0)
-                {
-                    //found the name, make sure there is a ( after the name
-                    //this will verify that it is this function, not another one with a slightly different name
-                    if(funcIndex + funcName.Length > input.Length || input[funcIndex + funcName.Length] != '(')
-                    {
-                        funcIndex = input.IndexOf(funcName, funcIndex + 1);
-                        continue;
-                    }
-
-                    //get the arguments
-                    int startIndex = funcIndex + funcName.Length + 1;
-                    int endIndex = FindNextClosing(input, startIndex, '(', ')') - 1;
-                    //int endIndex = input.IndexOf(')', funcIndex) - 1;
-
-                    ParameterInfo[] pis = mi.GetParameters();
-
-                    //start should be <= end, if there are parameters
-                    if (startIndex > endIndex && pis.Length > 0) break;
-
-                    //arguments
-                    string[] args = new string[0];
-
-                    if(startIndex <= endIndex)
-                    {
-                        string argsStr = input.Substring(startIndex, endIndex - startIndex + 1);
-                        args = ParseArgs(argsStr);
-                    }
-
-                    object result;
-
-                    if (args.Length > 0)
-                    {
-                        //get the values from all of the arguments
-                        object[] values = new object[args.Length];
-
-                        //make sure the amount of arguments is valid
-                        if (args.Length > pis.Length || args.Length < pis.Length)
-                        {
-                            //just go check the next function
-                            funcIndex = input.IndexOf(funcName, funcIndex + 1);
-                            continue;
-                        }
-
-                        for (int i = 0; i < values.Length; i++)
-                        {
-                            ParameterInfo pi = pis[i];
-
-                            string arg = args[i];//ParseInput(args[i]);
-
-                            if (pi.ParameterType == typeof(bool))
-                            {
-                                values[i] = ParseBool(arg);
-                            }
-                            else if (pi.ParameterType == typeof(int))
-                            {
-                                values[i] = ParseInt(arg);
-                            }
-                            else if (pi.ParameterType == typeof(double[]))
-                            {
-                                values[i] = ParseDoubleArray(arg);
-                            }
-                            else if (pi.ParameterType == typeof(double))
-                            {
-                                values[i] = ParseDouble(arg);
-                            }
-                            else if (pi.ParameterType == typeof(string))
-                            {
-                                values[i] = ParseString(arg);
-                            }
-                            else if (pi.ParameterType == typeof(MathNet.Symbolics.SymbolicExpression))
-                            {
-                                values[i] = ParseExpression(arg);
-                            }
-                            else
-                            {
-                                values[i] = arg;//type??
-                            }
-                        }
-
-                        //now that all of the values for the parameters have been gathered, pass them into the function and get the value
-                        result = mi.Invoke(null, values);
-                    } else
-                    {
-                        //no parameters, just run it
-                        result = mi.Invoke(null, null);
-                    }
-
-                    //now take the updated custom function and replace it in the actual function
-                    startIndex = funcIndex;
-                    endIndex = FindNextClosing(input, funcIndex + funcName.Length + 1, '(', ')');
-                    //endIndex = input.IndexOf(')', funcIndex);
-
-                    //remove the function
-                    input = input.Remove(startIndex, endIndex - startIndex + 1);
-
-                    //if it has a return value, insert it
-                    if (result != null)
-                    {
-                        //handle arrays differently...
-                        if (result.GetType().IsArray)
-                        {
-                            input = input.Insert(startIndex, ArrayToString((double[])result));
-                        } else
-                        {
-                            input = input.Insert(startIndex, result.ToString());
-                        }
-                    }
-
-                    //find the index of the function again to keep going
-                    funcIndex = input.IndexOf(funcName);
-                }
-            }
-
-            return input;
-        }
-
-        [Hidden]
-        public static string ReplaceConstants(string input)
-        {
-            foreach (FieldInfo fi in fields)
-            {
-                int varIndex = input.IndexOf(fi.Name);
-
-                //replace every occurance of this constant
-                while (varIndex >= 0)
-                {
-                    //make sure that this belongs to this constant only
-                    if ((varIndex == 0 || !char.IsLetterOrDigit(input[varIndex - 1])) && (varIndex + fi.Name.Length >= input.Length || !char.IsLetterOrDigit(input[varIndex + fi.Name.Length])))
-                    {
-                        //if it is, replace it
-                        input = input.Remove(varIndex, fi.Name.Length).Insert(varIndex, fi.GetRawConstantValue().ToString());
-                    }
-                    else
-                    {
-                        //if not a valid instance, set the index to the next one in the string
-                        varIndex = input.IndexOf(fi.Name, varIndex + 1);
-                        continue;
-                    }
-
-                    varIndex = input.IndexOf(fi.Name);
-                }
-            }
-
-            return input;
-        }
 
         #endregion
 
@@ -376,12 +237,12 @@ namespace MathematicalSandbox
         [Category(CategoryType.Math)]
         [method: Method("Returns d, rounded to the nearest whole number.")]
         [return: Return("")]
-        public static double round(double d) => round(d, 1);
+        public static double round(double d) => roundPrecise(d, 1);
 
         [Category(CategoryType.Math)]
         [method: Method("Returns d, rounded to precision p.")]
         [return: Return("")]
-        public static double round(double d, double p)
+        public static double roundPrecise(double d, double p)
         {
             if (p == 0) return d;
 
@@ -465,7 +326,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Math)]
         [method: Method("Returns the comparison between an array of numbers.")]
         [return: Return("True if the numbers are the same within 0.000001, false otherwise.")]
-        public static bool compare(double[] values)
+        public static bool compareArr(double[] values)
         {
             if (values.Length < 2) return true;
 
@@ -506,6 +367,32 @@ namespace MathematicalSandbox
             return d % m;
         }
 
+        [Category(CategoryType.Array)]
+        [method: Method("Returns the size of object.")]
+        [return: Return("The size of the array in memory, in bytes, or -1 if the size cannot be determined.")]
+        public static int sizeOf(object o)
+        {
+            Type t = o.GetType();
+
+            if(t == typeof(int))
+            {
+                return sizeof(int);
+            } else if (t == typeof(double))
+            {
+                return sizeof(double);
+            } else if (t == typeof(string))
+            {
+                return sizeof(char) * o.ToString().Length;
+            } else if (t == typeof(bool))
+            {
+                return sizeof(bool);
+            } else
+            {
+                //anything else cannot be determined
+                return -1;
+            }
+        }
+
         #endregion
 
         #region Random
@@ -528,7 +415,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Random)]
         [method: Method("Returns a random number between min (inclusive) and max (exclusive).")]
         [return: Return("A value in the range min <= x < max.")]
-        public static double random(double min, double max)
+        public static double randomRange(double min, double max)
         {
             return random() * (max - min) + min;
         }
@@ -551,13 +438,13 @@ namespace MathematicalSandbox
         [Category(CategoryType.Random)]
         [method: Method("Returns an array of size size of random numbers between min (inclusive) and max (exclusive).")]
         [return: Return("An array whose values are in the range min <= x < max.")]
-        public static double[] randomArr(int size, double min, double max)
+        public static double[] randomRangeArr(int size, double min, double max)
         {
             double[] arr = new double[size];
 
             for (int i = 0; i < size; i++)
             {
-                arr[i] = random(min, max);
+                arr[i] = randomRange(min, max);
             }
 
             return arr;
@@ -574,7 +461,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Random)]
         [method: Method("Returns a random whole number between min (inclusive) and max (exclusive).")]
         [return: Return("")]
-        public static int randomInt(int min, int max)
+        public static int randomRangeInt(int min, int max)
         {
             return rng.Next(min, max);
         }
@@ -597,13 +484,13 @@ namespace MathematicalSandbox
         [Category(CategoryType.Random)]
         [method: Method("Returns an array of size size of random whole numbers between min (inclusive) and max (exclusive).")]
         [return: Return("")]
-        public static double[] randomArrInt(int size, int min, int max)
+        public static double[] randomRangeArrInt(int size, int min, int max)
         {
             double[] arr = new double[size];
 
             for (int i = 0; i < size; i++)
             {
-                arr[i] = randomInt(min, max);
+                arr[i] = randomRangeInt(min, max);
             }
 
             return arr;
@@ -616,7 +503,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Array)]
         [method: Method("Returns the sum of an array.")]
         [return: Return("The sum of all of the elements of the given array.")]
-        public static double sum(double[] values)
+        public static double sumArr(double[] values)
         {
             double total = 0.0;
 
@@ -628,24 +515,24 @@ namespace MathematicalSandbox
         [Category(CategoryType.Array)]
         [method: Method("")]
         [return: Return("The average of all of the elements of the given array.")]
-        public static double average(double[] values)
+        public static double averageArr(double[] values)
         {
-            return sum(values) / values.Length;
+            return sumArr(values) / values.Length;
         }
 
 
         [Category(CategoryType.Array)]
         [method: Method("Returns the number of elements of the array.")]
         [return: Return("The number of elements in the array.")]
-        public static int count(double[] values)
+        public static int countArr(double[] values)
         {
             return values.Length;
         }
 
         [Category(CategoryType.Array)]
         [method: Method("Returns the size of the array.")]
-        [return: Return("The size of the array in memory, in bytes..")]
-        public static int sizeOf(double[] values)
+        [return: Return("The size of the array in memory, in bytes.")]
+        public static int sizeOfArr(double[] values)
         {
             return sizeof(double) * values.Length;
         }
@@ -653,7 +540,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Array)]
         [method: Method("Returns the minimum value in an array.")]
         [return: Return("The lowest value in the given array.")]
-        public static double min(double[] values)
+        public static double minArr(double[] values)
         {
             double min = double.MaxValue;
 
@@ -671,7 +558,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Array)]
         [method: Method("Returns the maximum value in an array.")]
         [return: Return("The higest value in the given array.")]
-        public static double max(double[] values)
+        public static double maxArr(double[] values)
         {
             double max = double.MinValue;
 
@@ -689,16 +576,16 @@ namespace MathematicalSandbox
         [Category(CategoryType.Array)]
         [method: Method("Returns the range of the values in an array.")]
         [return: Return("The (highest value - lowest value) in the given array.")]
-        public static double range(double[] values)
+        public static double rangeArr(double[] values)
         {
-            return max(values) - min(values);
+            return maxArr(values) - minArr(values);
         }
 
 
         [Category(CategoryType.Array)]
         [method: Method("")]
         [return: Return("")]
-        public static double index(double[] values, int index)
+        public static double indexArr(double[] values, int index)
         {
             if (index < 0 || index >= values.Length) return 0;
 
@@ -712,7 +599,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Method("Returns the value of the expression after plugging in the variable a.")]
         [return: Return("The value of the expression when solving for a.")]
-        public static double evaluate(
+        public static double evaluate1(
             [Parameter("The equation to evaluate.")] Expr expr,
             [Parameter("The name of the variable in the equation.")] string aName,
             [Parameter("The value of the variable.")] double a)
@@ -725,7 +612,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Method("Returns the value of the expression after plugging in the variables a and b.")]
         [return: Return("The value of the expression when solving for a and b.")]
-        public static double evaluate(
+        public static double evaluate2(
             [Parameter("The equation to evaluate.")] Expr expr,
             [Parameter("The name of the first variable in the equation.")] string aName, [Parameter("The value of the first variable.")] double a,
             [Parameter("The name of the second variable in the equation.")] string bName, [Parameter("The value of the second variable.")] double b)
@@ -738,7 +625,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Method("Returns the value of the expression after plugging in the variables a, b and c.")]
         [return: Return("The value of the expression when solving for a, b and c.")]
-        public static double evaluate(
+        public static double evaluate3(
             [Parameter("The equation to evaluate.")] Expr expr,
             [Parameter("The name of the first variable in the equation.")] string aName, [Parameter("The value of the first variable.")] double a,
             [Parameter("The name of the second variable in the equation.")] string bName, [Parameter("The value of the second variable.")] double b,
@@ -752,7 +639,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Method("Returns the value of the expression after plugging in the variables a, b, c and d.")]
         [return: Return("The value of the expression when solving for a, b, c and d.")]
-        public static double evaluate(
+        public static double evaluate4(
             [Parameter("The equation to evaluate.")] Expr expr,
             [Parameter("The name of the first variable in the equation.")] string aName, [Parameter("The value of the first variable.")] double a,
             [Parameter("The name of the second variable in the equation.")] string bName, [Parameter("The value of the second variable.")] double b,
@@ -770,6 +657,16 @@ namespace MathematicalSandbox
         public static double distance(double x, double y)
         {
             return sqrt(pow(x, 2) + pow(y, 2));
+        }
+
+        [Category(CategoryType.Algebra)]
+        [method: Method("Returns an expression containing an approximate fraction based on d.")]
+        [return: Return("")]
+        public static Expr approximate(double d)
+        {
+            double denominator = pow(10, d.ToString().Length);
+
+            return Expr.Parse(d + "/" + denominator);
         }
 
         #endregion
@@ -792,7 +689,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the value of the first derivative of x.")]
         [return: Return("")]
-        public static double firstDerivative(Expr expr, string varName, double x)
+        public static double derivative1(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -802,7 +699,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the value of the second derivative of x.")]
         [return: Return("")]
-        public static double secondDerivative(Expr expr, string varName, double x)
+        public static double derivative2(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -812,7 +709,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the value of the third derivative of x.")]
         [return: Return("")]
-        public static double thirdDerivative(Expr expr, string varName, double x)
+        public static double derivative3(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -822,7 +719,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the value of the fourth derivative of x.")]
         [return: Return("")]
-        public static double fourthDerivative(Expr expr, string varName, double x)
+        public static double derivative4(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -854,7 +751,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the integrated value using the Trapezoidal Rule, with the given values and intervals.")]
         [return: Return("")]
-        public static double trapezoidalRule(double[] values, double[] intervals)
+        public static double trapezoidalRuleInterval(double[] values, double[] intervals)
         {
             //find the total area from all of the values and intervals
             double totalArea = 0.0;
@@ -937,7 +834,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the integrated value using the Simpson Rule, with the given values and interval.")]
         [return: Return("")]
-        public static double simpsonRule(double[] values, double interval)
+        public static double simpsonRuleInterval(double[] values, double interval)
         {
             //first do the inside of the parenthesis
             //add the first and last numbers first since they are not doubled
@@ -977,7 +874,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Method("Returns the amount of intervals, n, that can be used with the given error, Es.")]
         [return: Return("The number of intervals.")]
-        public static double simpsonRuleN(double m, double a, double b, double Es)
+        public static int simpsonRuleN(double m, double a, double b, double Es)
         {
             int n = (int)ceiling(pow((m * pow(b - a, 5)) / (180 * abs(Es)), 1.0 / 4));
 
@@ -1028,7 +925,24 @@ namespace MathematicalSandbox
         [method: Method("Clears the screen of all previous calculations.")]
         public static void clear()
         {
-            Sandbox.RedrawScreen();
+            Sandbox.ClearScreen();
+        }
+
+        [Category(CategoryType.Miscellaneous)]
+        [method: Method("Returns string version of o.")]
+        [return: Return("")]
+        public static string toString(object o)
+        {
+            return o.ToString();
+        }
+
+        [Category(CategoryType.Miscellaneous)]
+        [method: Method("Returns an integer representing the amount of significant figures in str.")]
+        [return: Return("")]
+        public static int sigfig(string str)
+        {
+            //remove the 0's on the left and the decimal point and you have your sigfigs
+            return str.TrimStart('0').Replace(".", "").Length;
         }
 
         #endregion

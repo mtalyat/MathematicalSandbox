@@ -12,6 +12,7 @@ namespace MathematicalSandbox
             Console.Title = "Mathematical Sandbox";
             Console.CursorVisible = false;
             Console.SetWindowSize(150, 45);
+            Console.TreatControlCAsInput = false;
 
             saveData = SaveData.Load();
             saveData.Update();
@@ -91,7 +92,7 @@ namespace MathematicalSandbox
         {
             Output.Clear();
 
-            string[] options = new string[] { "Text Color", "Background Color", "Delete All Variables", "Reset Settings" };
+            string[] options = new string[] { "Text Color", "Background Color", "Debug Mode", "Delete All Variables", "Reset Settings" };
 
             int optionsChoice = Input.EnterChoiceIndex(options);
 
@@ -132,6 +133,9 @@ namespace MathematicalSandbox
                             saveData.Update();
                         }
                         break;
+                    case "Debug Mode":
+                        saveData.DebugMode = Input.EnterChoiceIndex(new string[] { "On", "Off" }, "Debug Mode", saveData.DebugMode ? 0 : 1) == 0;
+                        break;
                     case "Delete All Variables":
                         if(Input.EnterYesNo("Are you sure you want to delete all saved variables?"))
                         {
@@ -160,12 +164,14 @@ namespace MathematicalSandbox
 
             while (choiceIndex >= 0)
             {
+                Console.CursorVisible = false;
+
                 string choice = choices[choiceIndex];
 
                 switch (choice)
                 {
                     case "Sandbox":
-                        Sandbox.SandboxLoop();
+                        Sandbox.SandboxLoop(true);
                         break;
                     case "Variables":
                         Sandbox.VariableLoop();

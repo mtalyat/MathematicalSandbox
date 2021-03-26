@@ -13,6 +13,10 @@ namespace MathematicalSandbox
 {
     static class Sandbox
     {
+        private static List<string> history = new List<string>();
+
+        private static bool recordNextValue = true;
+
         #region Variables
 
         private static Dictionary<string, object> variables = new Dictionary<string, object>();
@@ -29,6 +33,8 @@ namespace MathematicalSandbox
 
         public static void SetVariable(string name, object value)
         {
+            if (SaveData.Instance.DebugMode) Output.Print(string.Format("Setting {0} to {1}.", name, value));
+
             if (variables.ContainsKey(name))
             {
                 variables[name] = value;
@@ -117,7 +123,7 @@ namespace MathematicalSandbox
                         variable = new KeyValuePair<string, object>(newName, variable.Value);
                         break;
                     case "Change Value":
-                        SetVariable(variable.Key, EnterAnything());
+                        SetVariable(variable.Key, EvaluateInput(EnterString()));
                         variable = new KeyValuePair<string, object>(variable.Key, GetVariable(variable.Key));
                         break;
                     case "Delete":
@@ -143,62 +149,90 @@ namespace MathematicalSandbox
 
         #region Replacing
 
-        public static string ReplaceVariables(string input)
+        public static string[] ReplaceVariables(string[] input)
         {
-            foreach (var pair in variables)
+            string[] output = new string[input.Length];
+
+            for (int i = 0; i < input.Length; i++)
             {
-                int varIndex = input.IndexOf(pair.Key);
+                String s = input[i];
 
-                //replace every occurance of this variable
-                while (varIndex >= 0)
+                if (variables.ContainsKey(s))
                 {
-                    //make sure that this belongs to this variable only
-                    if ((varIndex == 0 || !char.IsLetterOrDigit(input[varIndex - 1])) && (varIndex + pair.Key.Length >= input.Length || !char.IsLetterOrDigit(input[varIndex + pair.Key.Length])))
+                    //determine what to "wrap" the variable with, if needed
+                    object value = variables[s];
+                    Type t = value.GetType();
+
+                    string wrap = "";
+
+                    if(t == typeof(string))
                     {
-                        //if it is, replace it
-                        //handle differently if it is an array
-                        if (pair.Value.GetType().IsArray)
-                        {
-                            input = input.Remove(varIndex, pair.Key.Length).Insert(varIndex, ArrayToString((double[])pair.Value));
-                        } else
-                        {
-                            input = input.Remove(varIndex, pair.Key.Length).Insert(varIndex, pair.Value.ToString());
-                        }
-                        
-                    }
-                    else
+                        wrap = Parse.STR_OPEN_CLOSE.ToString() + Parse.STR_OPEN_CLOSE.ToString();
+                    } else if (t == typeof(Expr))
                     {
-                        //if not a valid instance, set the index to the next one in the string
-                        varIndex = input.IndexOf(pair.Key, varIndex + 1);
-                        continue;
+                        wrap = Parse.EXPR_OPEN.ToString() + Parse.EXPR_CLOSE.ToString();
                     }
 
-                    varIndex = input.IndexOf(pair.Key);
+                    //something entirely different if it is an array
+                    if (t.IsArray)
+                    {
+                        output[i] = Output.ArrayToString((double[])variables[s]);
+                    } else
+                    {
+                        if (wrap.Length > 0)
+                        {
+                            output[i] = string.Format("{1}{0}{2}", variables[s].ToString(), wrap[0], wrap[1]);
+                        }
+                        else
+                        {
+                            output[i] = variables[s].ToString();
+                        }
+                    }
+                } else
+                {
+                    output[i] = s;
                 }
             }
 
-            return input;
+            return output;
         }
 
         #endregion
 
         #region Sandboxing
 
-        public static void SandboxLoop()
+        public static void SandboxLoop(bool recordHistory)
         {
             //show cursor, only for sandbox mode
             Console.CursorVisible = true;
 
-            RedrawScreen();
+            RedrawScreen(recordHistory);
 
             while (true)
             {
-                object input = EnterAnything();
+                string input = EnterString();
+                object output = EvaluateInput(input);
 
-                if (input == null) break;
+                if (output == null) break;
 
-                Display(input);
-                PrintLine();
+                if (recordHistory)
+                {
+                    if (recordNextValue)
+                    {
+                        Display(output);
+                        PrintLine();
+
+                        history.Add(input);
+                        history.Add(output.ToString());
+                    }
+                    else
+                    {
+                        recordNextValue = true;
+                    }
+                } else {
+                    Display(output);
+                    PrintLine();
+                }
             }
 
             Clear();
@@ -206,7 +240,16 @@ namespace MathematicalSandbox
             Console.CursorVisible = false;
         }
 
-        public static void RedrawScreen()
+        public static void ClearScreen()
+        {
+            history.Clear();
+
+            recordNextValue = false;
+
+            RedrawScreen(true);
+        }
+
+        public static void RedrawScreen(bool showHistory)
         {
             Clear();
 
@@ -215,6 +258,25 @@ namespace MathematicalSandbox
             PrintTitle("Sandbox Mode");
 
             Print("Welcome to sandbox mode. Visit the help page to learn how to use Sandbox Mode. Enter a blank line to quit.");
+
+            if (showHistory)
+            {
+                bool input = true;
+                foreach (string line in history)
+                {
+                    if (input)
+                    {
+                        FakeInput(line);
+                    }
+                    else
+                    {
+                        Display(line);
+                        PrintLine();
+                    }
+
+                    input = !input;
+                }
+            }
         }
 
         #endregion

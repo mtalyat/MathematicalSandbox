@@ -13,14 +13,9 @@ namespace MathematicalSandbox
 
         #region Reading
 
-        public static object ReadAnything()
-        {
-            return ParseAnything(ReadString());
-        }
-
         public static Expr ReadExpression()
         {
-            return ParseExpression(Console.ReadLine());
+            return Parse.ParseExpression(Console.ReadLine());
         }
 
         public static string ReadString()
@@ -35,7 +30,7 @@ namespace MathematicalSandbox
 
         public static double ReadDouble()
         {
-            return ReadExpression().Compile("")(0);
+            return Parse.EvaluateExpression(ReadString());
         }
 
         public static ConsoleKey ReadKey()
@@ -50,7 +45,7 @@ namespace MathematicalSandbox
 
         public static bool ReadBool()
         {
-            return ParseBool(ReadString());
+            return Parse.ParseBool(ReadString());
         }
 
         public static void WaitForEnter()
@@ -67,275 +62,55 @@ namespace MathematicalSandbox
 
         #endregion
 
-        #region Conversions
-
-        public static object ParseAnything(string input)
+        public static object EvaluateInput(string input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (input.Contains("=="))//comparison operator
             {
-                return null;
-            }
-
-            if (input.Contains("=="))//evaluation
-            {
-                input = ParseInput(input);
-
                 string[] parts = input.Split("==");
 
-                bool equal = true;
+                object original = Parse.ParseAnything(parts[0]);
 
-                for (int i = 0; i < parts.Length - 1; i++)
+                //compare all of the following to the original object
+                for (int i = 1; i < parts.Length; i++)
                 {
-                    if (!Function.compare(ParseAnything(parts[i]), ParseAnything(parts[i + 1])))
+                    //if not equal, return now
+                    if (!original.Equals(Parse.ParseAnything(parts[i])))
                     {
-                        equal = false;
+                        return false;
                     }
                 }
 
-                return equal;
-            }
-            else if (input.Contains("="))//assignment
+                //if it made it this far, it is equal
+                return true;
+            } else if (input.Contains('='))//assignment operator
             {
                 string[] parts = input.Split('=');
 
-                if (parts.Length > 2)
+                if(parts.Length > 2)
                 {
-                    PrintError("You cannot have more than one assignment in one line.");
+                    PrintError("You can only use one assignment operator (=) in one line. (Input.EvaluateInput)");
                     return null;
                 }
 
-                Sandbox.SetVariable(parts[0], ParseAnything(parts[1]));
-                return Sandbox.GetVariable(parts[0]);
-            }
-            else//expression, or otherwise
+                string name = parts[0].Trim();
+
+                object value = Parse.ParseAnything(parts[1]);
+
+                Sandbox.SetVariable(name, value);
+
+                return value;
+            } else
             {
-                if (input.Contains('"'))//string
-                {
-                    return ParseString(input);
-                }
-
-                //any math thing doesn't need spaces, and you can replace functions and all that now
-                input = ParseInput(input.Replace(" ", ""));
-
-                //if it is an expression, handle that
-                if (input.Contains('{') && input.Contains('}'))//expression
-                {
-                    Expr expr = ParseExpression(input.Replace("{", "").Replace("}", ""));
-
-                    return expr;
-                }
-
-                //should be only numbers at this point, so feel free to remove spaces
-                input = ParseInput(input.Replace(" ", ""));
-
-                if (input.Contains('[') && input.Contains(']'))//array
-                {
-                    return ParseDoubleArray(input);
-                }
-
-                //must be a number or bool, otherwise
-                bool boolInput;
-                if (bool.TryParse(input, out boolInput))
-                {
-                    return boolInput;
-                }
-
-                double doubleValue = ParseDouble(input);
-                int intValue = (int)doubleValue;
-
-                //if the int values is equal to the double value, then they must be whole numbers
-                if(intValue == doubleValue)
-                {
-                    return intValue;
-                } else
-                {
-                    return doubleValue;
-                }
+                return Parse.ParseAnything(input);
             }
         }
 
-        public static string ParseInput(string input)
+        public static void FakeInput(string output)
         {
-            return Function.ReplaceFunctions(Function.ReplaceConstants(Sandbox.ReplaceVariables(input)));
+            Console.WriteLine(IN_CHAR + output);
         }
-
-        public static Expr ParseExpression(string str)
-        {
-            try
-            {
-                return Expr.Parse(str);
-            }
-            catch
-            {
-                return Expr.Zero;
-            }
-        }
-
-        public static string ParseString(string str)
-        {
-            if (str.Length > 0)
-            {
-                if (str[0] == '"' && str[str.Length - 1] == '"') str = str.Remove(0, 1).Remove(str.Length - 1, 1);
-                else str = string.Empty;
-            }
-
-            return str;
-        }
-
-        public static double ParseDouble(string str)
-        {
-            bool outBool;
-            if(bool.TryParse(str, out outBool))
-            {
-                return outBool == true ? 1 : 0;
-            }
-
-            try
-            {
-                return ParseExpression(str).Compile("")(0);
-            } catch
-            {
-                return 0.0;
-            }
-        }
-
-        public static string[] ParseArgs(string str)
-        {
-            if (str.Length == 0) return new string[0];
-
-            List<string> args = new List<string>();
-
-            StringBuilder current = new StringBuilder();
-
-            int arrayDepth = 0;
-            int stringDepth = 0;
-            int exprDepth = 0;
-            int parenDepth = 0;
-
-            for (int i = 0; i < str.Length; i++)
-            {
-                char c = str[i];
-
-                if (c == '"')
-                {
-                    stringDepth = (stringDepth + 1) % 2;
-                }
-                else if (c == '{')
-                {
-                    exprDepth++;
-                } else if (c == '}')
-                {
-                    exprDepth--;
-                }
-                else if (c == '(')
-                {
-                    parenDepth++;
-                    current.Append(c);
-                }
-                else if (c == ')')
-                {
-                    parenDepth--;
-                    current.Append(c);
-                }
-                else if (stringDepth == 0 && exprDepth == 0 && parenDepth == 0)
-                {
-                    if (c == '[')
-                    {
-                        arrayDepth++;
-                        current.Append(c);
-                    }
-                    else if (c == ']')
-                    {
-                        arrayDepth--;
-                        current.Append(c);
-                    }
-                    else if (c == ',' && arrayDepth == 0)
-                    {
-                        //not in array, so split
-                        args.Add(current.ToString());
-                        current.Clear();
-                    }
-                    else
-                    {
-                        //either in an array with a comma, OR in the middle of an arg
-                        current.Append(c);
-                    }
-                }
-                else
-                {
-                    //in a string or expression, so append it all baby
-                    current.Append(c);
-                }
-                
-            }
-
-            //add the last argument
-            if(current.Length > 0)
-            {
-                args.Add(current.ToString());
-            }
-
-            return args.ToArray();
-        }
-
-        public static double[] ParseDoubleArray(string str)
-        {
-            //first, get the values as strings
-            string[] strValues = str.Replace("[", "").Replace("]", "").Split(',');
-
-            //then, put them in a double array
-            double[] values = new double[strValues.Length];
-
-            for (int i = 0; i < values.Length; i++)
-            {
-                values[i] = ParseDouble(strValues[i]);
-            }
-
-            return values;
-        }
-
-        public static int ParseInt(string str)
-        {
-            return (int)ParseDouble(str);
-        }
-
-        public static bool ParseBool(string str)
-        {
-            bool output;
-
-            if(bool.TryParse(str, out output))
-            {
-                return output;
-            }
-
-            return false;
-        }
-
-        public static bool IsEquation(Expr expression)
-        {
-            try
-            {
-                expression.Compile();
-
-                //no errors thrown, must be valid
-                return true;
-            }
-            catch
-            {
-                //error thrown, there must be a variable
-                return false;
-            }
-        }
-
-        #endregion
 
         #region Input
-
-        public static object EnterAnything()
-        {
-            Console.Write(IN_CHAR);
-            return ReadAnything();
-        }
 
         public static Expr EnterExpression()
         {
