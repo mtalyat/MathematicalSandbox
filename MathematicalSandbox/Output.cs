@@ -74,7 +74,6 @@ namespace MathematicalSandbox
             Console.Write(Parse.FUNC_CLOSE);
         }
 
-        public static void PrintFunction(string name) => PrintFunction(Function.GetFunction(name));
         public static void PrintFunction(MethodInfo mi)
         {
             Console.WriteLine(MethodToString(mi));

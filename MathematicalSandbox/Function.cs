@@ -69,7 +69,7 @@ namespace MathematicalSandbox
         public static object GetConstant(string name)
         {
             //check the constants
-            FieldInfo fi = fields.First((v) =>
+            FieldInfo fi = fields.FirstOrDefault((v) =>
             {
                 return v.Name == name;
             });
@@ -77,15 +77,15 @@ namespace MathematicalSandbox
             if (fi != null) return fi;
 
             //found nothing, return default
-            return 0.0;
+            return null;
         }
 
         [Hidden]
-        public static MethodInfo GetFunction(string name)
+        public static MethodInfo GetFunction(string name, int parameterCount)
         {
             foreach (MethodInfo mi in methods)
             {
-                if (mi.Name == name) return mi;
+                if (mi.Name == name && mi.GetParameters().Length == parameterCount) return mi;
             }
 
             return null;
@@ -146,36 +146,23 @@ namespace MathematicalSandbox
         }
 
         [Hidden]
-        public static string[] ReplaceConstants(string[] input)
+        public static string TryReplaceConstant(string input)
         {
-            string[] output = new string[input.Length];
+            object c = GetConstant(input);
 
-            for (int i = 0; i < input.Length; i++)
+            if(c != null)
             {
-                String s = input[i];
-
-                bool found = false;
-                foreach(FieldInfo fi in fields)
-                {
-                    if(fi.Name.CompareTo(s) == 0)
-                    {
-                        output[i] = fi.GetRawConstantValue().ToString();
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                    output[i] = s;
+                return c.ToString();
+            } else
+            {
+                return input;
             }
-
-            return output;
         }
 
         [Hidden]
         public static object EvaluateFunction(string name, object[] args)
         {
-            return GetFunction(name).Invoke(null, args);
+            return GetFunction(name, args.Length).Invoke(null, args);
         }
 
         #endregion
@@ -629,7 +616,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Desc("Returns the value of the expression after plugging in the variable a.")]
         [return: Desc("The value of the expression when solving for a.")]
-        public static double evaluate1(
+        public static double evaluate(
             [Desc("The equation to evaluate.")] Expr expr,
             [Desc("The name of the variable in the equation.")] string aName,
             [Desc("The value of the variable.")] double a)
@@ -642,7 +629,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Desc("Returns the value of the expression after plugging in the variables a and b.")]
         [return: Desc("The value of the expression when solving for a and b.")]
-        public static double evaluate2(
+        public static double evaluate(
             [Desc("The equation to evaluate.")] Expr expr,
             [Desc("The name of the first variable in the equation.")] string aName, [Desc("The value of the first variable.")] double a,
             [Desc("The name of the second variable in the equation.")] string bName, [Desc("The value of the second variable.")] double b)
@@ -655,7 +642,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Desc("Returns the value of the expression after plugging in the variables a, b and c.")]
         [return: Desc("The value of the expression when solving for a, b and c.")]
-        public static double evaluate3(
+        public static double evaluate(
             [Desc("The equation to evaluate.")] Expr expr,
             [Desc("The name of the first variable in the equation.")] string aName, [Desc("The value of the first variable.")] double a,
             [Desc("The name of the second variable in the equation.")] string bName, [Desc("The value of the second variable.")] double b,
@@ -669,7 +656,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Algebra)]
         [method: Desc("Returns the value of the expression after plugging in the variables a, b, c and d.")]
         [return: Desc("The value of the expression when solving for a, b, c and d.")]
-        public static double evaluate4(
+        public static double evaluate(
             [Desc("The equation to evaluate.")] Expr expr,
             [Desc("The name of the first variable in the equation.")] string aName, [Desc("The value of the first variable.")] double a,
             [Desc("The name of the second variable in the equation.")] string bName, [Desc("The value of the second variable.")] double b,
@@ -731,6 +718,25 @@ namespace MathematicalSandbox
             return expr.Expand();
         }
 
+        [Category(CategoryType.Algebra)]
+        [method: Desc("Returns the value of the given variable in the expression.")]
+        [return: Desc("")]
+        public static double solve(Expr expr, string varName)
+        {
+            Expr v = Expr.Variable(varName);
+
+            expr = expr.RationalSimplify(v).Numerator().Expand();
+
+            Expr[] coeff = expr.Coefficients(v);
+            Console.WriteLine(coeff.Length);
+            switch (coeff.Length)
+            {
+                case 1: return 0.0;//Expr.Zero.Equals(coeff[0]) ? v : Expr.Undefined;
+                case 2: return (-coeff[0] / coeff[1]).Expand().RationalSimplify(v).RealNumberValue;
+                default: return 0.0;//Expr.Undefined.RealNumberValue;
+            }
+        }
+
         #endregion
 
         #region Geometry
@@ -741,7 +747,15 @@ namespace MathematicalSandbox
         public static double areaCircle(
             [Desc("The radius of the circle.")] double r)
         {
-            return PI * (r * r);
+            return PI * pow(r, 2);
+        }
+
+        [Category(CategoryType.Geometry)]
+        [method: Desc("Returns the area of a sphere, with given radius r.")]
+        [return: Desc("The area of the circle.")]
+        public static double areaSphere(double r)
+        {
+            return 4 * PI * pow(r, 2);
         }
 
         #endregion
@@ -751,7 +765,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the value of the first derivative of x.")]
         [return: Desc("")]
-        public static double derivative1(Expr expr, string varName, double x)
+        public static double firstDerivative(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -761,7 +775,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the value of the second derivative of x.")]
         [return: Desc("")]
-        public static double derivative2(Expr expr, string varName, double x)
+        public static double secondDerivative(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -771,7 +785,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the value of the third derivative of x.")]
         [return: Desc("")]
-        public static double derivative3(Expr expr, string varName, double x)
+        public static double thirdDerivative(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -781,7 +795,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the value of the fourth derivative of x.")]
         [return: Desc("")]
-        public static double derivative4(Expr expr, string varName, double x)
+        public static double fourthDerivative(Expr expr, string varName, double x)
         {
             var f = expr.Compile(varName);
 
@@ -813,7 +827,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the integrated value using the Trapezoidal Rule, with the given values and intervals.")]
         [return: Desc("")]
-        public static double trapezoidalRuleInterval(double[] values, double[] intervals)
+        public static double trapezoidalRule(double[] values, double[] intervals)
         {
             //find the total area from all of the values and intervals
             double totalArea = 0.0;
@@ -896,7 +910,7 @@ namespace MathematicalSandbox
         [Category(CategoryType.Calculus)]
         [method: Desc("Returns the integrated value using the Simpson Rule, with the given values and interval.")]
         [return: Desc("")]
-        public static double simpsonRuleInterval(double[] values, double interval)
+        public static double simpsonRule(double[] values, double interval)
         {
             //first do the inside of the parenthesis
             //add the first and last numbers first since they are not doubled

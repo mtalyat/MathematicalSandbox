@@ -74,7 +74,7 @@ namespace MathematicalSandbox
                 for (int i = 1; i < parts.Length; i++)
                 {
                     //if not equal, return now
-                    if (!original.Equals(Parse.ParseAnything(parts[i])))
+                    if (!Function.compare(original, Parse.ParseAnything(parts[i])))
                     {
                         return false;
                     }

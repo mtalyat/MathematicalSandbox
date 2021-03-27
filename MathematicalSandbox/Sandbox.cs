@@ -149,52 +149,14 @@ namespace MathematicalSandbox
 
         #region Replacing
 
-        public static string[] ReplaceVariables(string[] input)
+        public static string TryReplaceVariable(string input)
         {
-            string[] output = new string[input.Length];
-
-            for (int i = 0; i < input.Length; i++)
+            if (variables.ContainsKey(input))
             {
-                String s = input[i];
-
-                if (variables.ContainsKey(s))
-                {
-                    //determine what to "wrap" the variable with, if needed
-                    object value = variables[s];
-                    Type t = value.GetType();
-
-                    string wrap = "";
-
-                    if(t == typeof(string))
-                    {
-                        wrap = Parse.STR_OPEN_CLOSE.ToString() + Parse.STR_OPEN_CLOSE.ToString();
-                    } else if (t == typeof(Expr))
-                    {
-                        wrap = Parse.EXPR_OPEN.ToString() + Parse.EXPR_CLOSE.ToString();
-                    }
-
-                    //something entirely different if it is an array
-                    if (t.IsArray)
-                    {
-                        output[i] = Output.ArrayToString((double[])variables[s]);
-                    } else
-                    {
-                        if (wrap.Length > 0)
-                        {
-                            output[i] = string.Format("{1}{0}{2}", variables[s].ToString(), wrap[0], wrap[1]);
-                        }
-                        else
-                        {
-                            output[i] = variables[s].ToString();
-                        }
-                    }
-                } else
-                {
-                    output[i] = s;
-                }
+                return variables[input].ToString();
             }
 
-            return output;
+            return input;
         }
 
         #endregion

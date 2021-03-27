@@ -130,10 +130,26 @@ namespace MathematicalSandbox
                 } else
                 {
                     //must be an operator or something if it got this far
-                    if(current.Length > 0)
+                    if (current.Length > 0)
                     {
-                        tokens.Add(current.ToString());
+                        //add the current thing to the 
+                        string thing = current.ToString();
                         current.Clear();
+
+                        //try to replace with variable value
+                        thing = Function.TryReplaceConstant(Sandbox.TryReplaceVariable(thing));
+
+                        //if it has a number at the front, it's a number
+                        if (char.IsDigit(thing[0]))
+                        {
+                            tokens.Add(thing);
+                        } else
+                        {
+                            //otherwise, it's a function, so add the amount of parameters at the end
+                            //this is used to evaluate functions that have overrides
+                            thing += CountUntilNext(input, i, ARG_PAR, FUNC_CLOSE) + 1;
+                            tokens.Add(thing);
+                        }
                     }
 
                     //add commas
@@ -150,6 +166,26 @@ namespace MathematicalSandbox
             }
 
             return tokens.ToArray();
+        }
+
+        /// <summary>
+        /// Counts chat counter until it reaches a chat ender.
+        /// </summary>
+        /// <returns>The count of counters, unless next was at index, then return -1.</returns>
+        private static int CountUntilNext(string str, int index, char counter, char ender)
+        {
+            if (str[index] == ender) return -1;
+
+            int count = 0;
+
+            for (int i = index; i < str.Length; i++)
+            {
+                if (str[i] == counter) count++;
+
+                if (str[i] == ender) break;
+            }
+
+            return count;
         }
 
         private static bool IsOperator(char c)
@@ -283,6 +319,7 @@ namespace MathematicalSandbox
                         operators.Pop();
                     }
 
+                    //push the function name itself
                     if (operators.Any() && char.IsLetter(operators.Peek()[0]))
                     {
                         outputs.Push(operators.Pop());
@@ -387,35 +424,60 @@ namespace MathematicalSandbox
                     operands.Push(EvaluateOperator(c, v1, v2));
                 } else
                 {
-                    //coult be a boolean or a function, so check if it is a function first
-                    MethodInfo mi = Function.GetFunction(token);
-
-                    if(mi != null)
+                    //if it has a number at the end, it's a function
+                    if(char.IsDigit(token[token.Length - 1]))
                     {
                         //function
-                        //determine how many arguments it needs
-                        int paramCount = mi.GetParameters().Length;
 
-                        //get those arguments from the operands
-                        object[] args = new object[paramCount];
+                        //extract the funcName and number of parameters
+                        string name = "";
+                        string number = "";
 
-                        //go backwards in the array, since they are backwards in the tokens
-                        for (int i = paramCount - 1; i >= 0; i--)
+                        for (int j = 0; j < token.Length; j++)
                         {
-                            args[i] = (object)operands.Pop();
+                            char k = token[j];
+                            if (char.IsDigit(k))
+                            {
+                                number += k;
+                            } else
+                            {
+                                name += k;
+                            }
                         }
 
-                        //now run the function and convert the output from an object, if it has one
-                        object returnValue = mi.Invoke(null, args);
+                        //determine how many arguments it needs
+                        int paramCount = int.Parse(number);
 
-                        dynamic output = 0;
+                        //coult be a boolean or a function, so check if it is a function first
+                        MethodInfo mi = Function.GetFunction(name, paramCount);
 
-                        if (returnValue != null)
-                            output = Convert.ChangeType(mi.Invoke(null, args), mi.ReturnType);
+                        if (mi != null)
+                        {
+                            //get those arguments from the operands
+                            object[] args = new object[paramCount];
 
-                        //then add it to the operands
-                        operands.Push(output);
-                    } else
+                            //go backwards in the array, since they are backwards in the tokens
+                            for (int i = paramCount - 1; i >= 0; i--)
+                            {
+                                args[i] = (object)operands.Pop();
+                            }
+
+                            //now run the function and convert the output from an object, if it has one
+                            object returnValue = mi.Invoke(null, args);
+
+                            dynamic output = 0;
+
+                            if (returnValue != null)
+                                output = Convert.ChangeType(mi.Invoke(null, args), mi.ReturnType);
+
+                            //then add it to the operands
+                            operands.Push(output);
+                        } else
+                        {
+                            Output.PrintError("Unknown function: " + token);
+                            return null;
+                        }
+                    }else
                     {
                         //must be a boolean
                         operands.Push(ParseBool(token));
@@ -435,10 +497,9 @@ namespace MathematicalSandbox
         
         public static object ParseAnything(string input)
         {
-            //split the input into tokens
-            //replace all variables with their numbers
+            //split the input into tokens and replace variables as it goes
             //then put it in an array to use with the shunting-yard algorithm
-            object output = EvaluateShuntingYard(PreformShuntingYard(Function.ReplaceConstants(Sandbox.ReplaceVariables(GetTokens(input)))));
+            object output = EvaluateShuntingYard(PreformShuntingYard(GetTokens(input)));
 
             return output;
         }
