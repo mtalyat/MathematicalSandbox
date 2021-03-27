@@ -138,12 +138,6 @@ namespace MathematicalSandbox
 
                     //add commas
                     tokens.Add(c.ToString());
-
-                    //don't add commas
-                    //if (c != ARG_PAR)
-                    //{
-                        
-                    //}
                 }
 
                 lastChar = c;
@@ -538,7 +532,21 @@ namespace MathematicalSandbox
 
         public static double[] ParseDoubleArray(string input)
         {
-            throw new NotImplementedException();
+            //remove the brackets
+            input = input.TrimStart(ARR_OPEN).TrimEnd(ARR_CLOSE);
+
+            //get each number
+            string[] strValues = input.Split(ARG_PAR);
+
+            //convert them all to doubles and return
+            double[] output = new double[strValues.Length];
+
+            for (int i = 0; i < output.Length; i++)
+            {
+                output[i] = ParseDouble(strValues[i]);
+            }
+
+            return output;
         }
 
         public static int ParseInt(string input)

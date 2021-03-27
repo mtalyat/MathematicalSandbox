@@ -201,16 +201,16 @@ namespace MathematicalSandbox
 
         #region Sandboxing
 
-        public static void SandboxLoop(bool recordHistory)
+        public static void SandboxLoop(bool recordHistory, string startingInput = "")
         {
             //show cursor, only for sandbox mode
             Console.CursorVisible = true;
 
-            RedrawScreen(recordHistory);
+            DrawScreen(recordHistory);
 
             while (true)
             {
-                string input = EnterString();
+                string input = EnterString(startingInput);
                 object output = EvaluateInput(input);
 
                 if (output == null) break;
@@ -249,12 +249,8 @@ namespace MathematicalSandbox
             RedrawScreen(true);
         }
 
-        public static void RedrawScreen(bool showHistory)
+        private static void DrawScreen(bool showHistory)
         {
-            Clear();
-
-            Console.SetCursorPosition(0, 0);
-
             PrintTitle("Sandbox Mode");
 
             Print("Welcome to sandbox mode. Visit the help page to learn how to use Sandbox Mode. Enter a blank line to quit.");
@@ -277,6 +273,13 @@ namespace MathematicalSandbox
                     input = !input;
                 }
             }
+        }
+
+        public static void RedrawScreen(bool showHistory)
+        {
+            Clear();
+
+            DrawScreen(showHistory);
         }
 
         #endregion

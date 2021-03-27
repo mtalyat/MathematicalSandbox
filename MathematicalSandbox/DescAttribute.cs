@@ -1,13 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace MathematicalSandbox
 {
-    [AttributeUsage(AttributeTargets.Method)]
-    class MethodAttribute : Attribute
+    class DescAttribute : Attribute
     {
-        private string description;
+        string description;
 
-        public MethodAttribute(string description)
+        public DescAttribute(string description)
         {
             this.description = description;
         }

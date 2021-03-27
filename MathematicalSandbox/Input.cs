@@ -118,9 +118,9 @@ namespace MathematicalSandbox
             return ReadExpression();
         }
 
-        public static string EnterString()
+        public static string EnterString(string startingInput = "")
         {
-            Console.Write(IN_CHAR);
+            Console.Write(IN_CHAR + startingInput);
             return ReadString();
         }
 
@@ -171,7 +171,7 @@ namespace MathematicalSandbox
 
             ConsoleKey key;
 
-            Console.Clear();
+            //Console.Clear();
 
             if (!string.IsNullOrWhiteSpace(prompt))
             {

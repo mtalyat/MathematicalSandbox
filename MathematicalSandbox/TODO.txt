@@ -1,0 +1,3 @@
+﻿Allow users to "Use", "Use in Sandbox" or "Go Back" when viewing the documentation for a function
+Documentation for constants
+Add more Algebra and Geometry functions

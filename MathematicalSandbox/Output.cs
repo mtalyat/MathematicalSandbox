@@ -54,13 +54,33 @@ namespace MathematicalSandbox
             Console.WriteLine(LooseTextWrap(text, wrapWidth));
         }
 
-        public static void PrintMethod(string name) => PrintMethod(Function.GetFunction(name));
-        public static void PrintMethod(MethodInfo mi)
+        public static void PrintPartialFunction(string funcName, object[] args)
+        {
+            Console.Write(funcName + Parse.FUNC_OPEN);
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if(args != null)
+                {
+                    Console.Write(args[i]);
+                }
+
+                if(i < args.Length - 1)
+                {
+                    Console.Write(Parse.ARG_PAR);
+                }
+            }
+
+            Console.Write(Parse.FUNC_CLOSE);
+        }
+
+        public static void PrintFunction(string name) => PrintFunction(Function.GetFunction(name));
+        public static void PrintFunction(MethodInfo mi)
         {
             Console.WriteLine(MethodToString(mi));
         }
 
-        public static void PrintMethodInfo(MethodInfo mi)
+        public static void PrintFunctionInfo(MethodInfo mi)
         {
             //print the header
             Print(MethodToString(mi), 2);
@@ -70,7 +90,7 @@ namespace MathematicalSandbox
             Print("Description:", 1);
 
             //write the description, if there is one
-            MethodAttribute ma = (MethodAttribute)mi.GetCustomAttribute(typeof(MethodAttribute));
+            DescAttribute ma = (DescAttribute)mi.GetCustomAttribute(typeof(DescAttribute));
             if (ma != null)
             {
                 Print(ma.ToString());
@@ -100,7 +120,7 @@ namespace MathematicalSandbox
                     Console.Write($"{pi.Name} - ");
 
                     //print the description, if there is one
-                    ParameterAttribute pa = (ParameterAttribute)pi.GetCustomAttribute(typeof(ParameterAttribute));
+                    DescAttribute pa = (DescAttribute)pi.GetCustomAttribute(typeof(DescAttribute));
                     if (pa != null)
                     {
                         Print(pa.ToString());
@@ -121,7 +141,7 @@ namespace MathematicalSandbox
                 Print("Returns:", 1);
 
                 //print the description, if applicable
-                ReturnAttribute ra = (ReturnAttribute)mi.ReturnParameter.GetCustomAttribute(typeof(ReturnAttribute));
+                DescAttribute ra = (DescAttribute)mi.ReturnParameter.GetCustomAttribute(typeof(DescAttribute));
                 if (ra != null)
                 {
                     Print(ra.ToString());
